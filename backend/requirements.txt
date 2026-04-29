@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+pyspark
+pydantic-settings
