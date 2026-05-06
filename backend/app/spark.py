@@ -3,6 +3,7 @@ from app.config import settings
 
 _spark = None
 
+
 def get_spark() -> SparkSession:
     global _spark
     if _spark is None:
@@ -11,6 +12,7 @@ def get_spark() -> SparkSession:
             .appName("MovieAnalysis")
             .master(settings.spark_master)
             .config("spark.sql.shuffle.partitions", settings.spark_partitions)
+            .config("spark.sql.ansi.enabled", "false")
             .getOrCreate()
         )
         _spark.sparkContext.setLogLevel("WARN")
