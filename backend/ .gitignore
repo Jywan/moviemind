@@ -14,3 +14,6 @@ __pycache__/
 derby.log
 metastore_db/
 spark-warehouse/
+
+# Python 가상환경
+.venv/
