@@ -7,3 +7,7 @@ router = APIRouter(prefix="/analysis", tags=["analysis"])
 @router.get("/genre")
 def genre_stats():
     return analysis_service.get_genre_stats()
+
+@router.get("/year-trend")
+def year_trend():
+    return analysis_service.get_year_trend()

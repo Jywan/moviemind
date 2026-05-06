@@ -30,3 +30,33 @@ def get_genre_stats():
     )
 
     return [row.asDict() for row in result]
+
+def get_year_trend():
+    spark = get_spark()
+    df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    result = (
+        df.select("release_date", "vote_average", "revenue")
+        .withColumn("year", F.year(F.to_date(F.col("release_date"), "yyyy-MM-dd")))
+        .withColumn("vote_average", F.col("vote_average").cast("float"))
+        .withColumn("revenue", F.col("revenue").cast("long"))
+        .filter(
+            F.col("year").isNotNull()
+            & (F.col("vote_average") > 0) & (F.col("vote_average") <= 10)
+            & (F.col("revenue") > 0)
+        )
+        .groupBy("year")
+        .agg(
+            F.count("*").alias("movie_count"),
+            F.round(F.avg("vote_average"), 2).alias("avg_rating"),
+            F.round(F.avg("revenue"), 0).alias("avg_revenue"),
+        )
+        .orderBy("year")
+        .collect()
+    )
+
+    return [row.asDict() for row in result]
