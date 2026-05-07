@@ -23,3 +23,7 @@ def top_actors():
 @router.get("/roi")
 def roi_analysis():
     return analysis_service.get_roi_analysis()
+
+@router.get("/similar/{movie_id}")
+def similar_movies(movie_id: int):
+    return analysis_service.get_similar_movies(movie_id)

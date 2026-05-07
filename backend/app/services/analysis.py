@@ -176,3 +176,59 @@ def get_roi_analysis(limit: int = 10):
     )
 
     return [row.asDict() for row in result]
+
+
+def get_similar_movies(movie_id:int, limit: int = 10):
+    spark = get_spark()
+    keywords_df = spark.read.csv(
+        f"{settings.data_dir}/keywords.csv",
+        header=True,
+        inferSchema=False,
+    )
+    movies_df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    keywords = (
+        keywords_df
+        .withColumn("keyword", F.explode(F.from_json(F.col("keywords"), "array<struct<id:int,name:string>>")))
+        .withColumn("keyword_name", F.col("keyword.name"))
+        .groupBy("id")
+        .agg(F.collect_set("keyword_name").alias("keywords"))
+    )
+
+    target = keywords.filter(F.col("id") == str(movie_id)).first()
+    if not target:
+        return []
+    
+    target_keywords = set(target["keywords"])
+
+    candidates = keywords.filter(F.col("id") != str(movie_id)).collect()
+
+    scores = []
+    for row in candidates:
+        other_keywords = set(row["keywords"])
+        union = target_keywords | other_keywords
+        if not union:
+            continue
+        score = len(target_keywords & other_keywords) / len(union)
+        scores.append((row["id"], round(score, 4)))
+
+    top_ids = [r[0] for r in sorted(scores, key=lambda x: -x[1])[:limit]]
+
+    movies = (
+        movies_df
+        .select("id", "title", "vote_average", "release_date")
+        .filter(F.col("id").isin(top_ids))
+        .withColumn("vote_average", F.round(F.col("vote_average").cast("double"), 2))
+        .filter(
+            F.col("title").isNotNull()
+            & F.col("vote_average").isNotNull()
+            & F.col("release_date").rlike(r"^\d{4}-\d{2}-\d{2}$")
+        )
+        .collect()
+    )
+
+    return [row.asDict() for row in movies]
