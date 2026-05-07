@@ -24,3 +24,13 @@ export async function getRoiAnalysis() {
     const res = await fetch(`${BASE_URL}/analysis/roi`);
     return res.json();
 }
+
+export async function getSimilarMovies(movieId: number) {
+    const res = await fetch(`${BASE_URL}/analysis/similar/${movieId}`);
+    return res.json();
+}
+
+export async function getRecommendations(userId: number) {
+    const res = await fetch(`${BASE_URL}/analysis/recommend/${userId}`);
+    return res.json();
+}
