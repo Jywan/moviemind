@@ -60,3 +60,46 @@ def get_year_trend():
     )
 
     return [row.asDict() for row in result]
+
+def get_top_directors(limit: int = 10):
+    spark = get_spark()
+    credits_df = spark.read.csv(
+        f"{settings.data_dir}/credits.csv",
+        header=True,
+        inferSchema=False,
+    )
+    movies_df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    directors = (
+        credits_df
+        .select("id", "crew")
+        .withColumn("member", F.explode(F.from_json(F.col("crew"), "array<struct<job:string,name:string>>")))
+        .filter(F.col("member.job") == "Director")
+        .select(F.col("id"), F.col("member.name").alias("director"))
+    )
+
+    movies = (
+        movies_df
+        .select("id", "vote_average")
+        .withColumn("vote_average", F.col("vote_average").cast("float"))
+        .filter((F.col("vote_average") > 0) & (F.col("vote_average") <= 10))
+    )
+
+    result = (
+        directors.join(movies, on="id")
+        .groupBy("director")
+        .agg(
+            F.count("*").alias("movie_count"),
+            F.round(F.avg("vote_average"), 2).alias("avg_rating"),
+        )
+        .filter(F.col("movie_count") >= 5)
+        .orderBy(F.desc("avg_rating"))
+        .limit(limit)
+        .collect()
+    )
+
+    return [row.asDict() for row in result]
