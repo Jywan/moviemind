@@ -13,6 +13,8 @@ def get_spark() -> SparkSession:
             .master(settings.spark_master)
             .config("spark.sql.shuffle.partitions", settings.spark_partitions)
             .config("spark.sql.ansi.enabled", "false")
+            .config("spark.driver.memory", "4g")
+            .config("spark.executor.memory", "4g")
             .getOrCreate()
         )
         _spark.sparkContext.setLogLevel("WARN")

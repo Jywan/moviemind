@@ -27,3 +27,7 @@ def roi_analysis():
 @router.get("/similar/{movie_id}")
 def similar_movies(movie_id: int):
     return analysis_service.get_similar_movies(movie_id)
+
+@router.get("/recommend/{user_id}")
+def recommend(user_id: int):
+    return analysis_service.get_user_recommendations(user_id)

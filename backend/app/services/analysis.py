@@ -1,6 +1,11 @@
+from pyspark.ml.recommendation import ALS
 from pyspark.sql import functions as F
+from pyspark.sql.types import IntegerType, FloatType
+
 from app.spark import get_spark
 from app.config import settings
+
+_als_model = None
 
 
 def get_genre_stats():
@@ -232,3 +237,81 @@ def get_similar_movies(movie_id:int, limit: int = 10):
     )
 
     return [row.asDict() for row in movies]
+
+
+def _get_als_model():
+    global _als_model
+    if _als_model is not None:
+        return _als_model
+    
+    spark = get_spark()
+    df = spark.read.csv(
+        f"{settings.data_dir}/ratings.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    ratings = (
+        df.select(
+            F.col("userId").cast(IntegerType()),
+            F.col("movieId").cast(IntegerType()),
+            F.col("rating").cast(FloatType()),
+        )
+        .filter(F.col("userId").isNotNull() & F.col("movieId").isNotNull())
+        .sample(fraction=0.2, seed=42)
+    )
+
+    als = ALS(
+        maxIter=10,
+        regParam=0.1,
+        userCol="userId",
+        itemCol="movieId",
+        ratingCol="rating",
+        coldStartStrategy="drop",
+    )
+
+    _als_model = als.fit(ratings)
+    return _als_model
+
+
+def get_user_recommendations(user_id: int, limit: int = 10):
+    spark = get_spark()
+    model = _get_als_model()
+
+    movies_df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    user_df = spark.createDataFrame([(user_id,)], ["userId"])
+    recs = model.recommendForUserSubset(user_df, limit)
+
+    movie_ids = (
+        recs.select(F.explode("recommendations").alias("rec"))
+        .select(
+            F.col("rec.movieId").alias("movieId"),
+            F.round(F.col("rec.rating").cast("double"), 2).alias("predicted_rating"),
+        )
+    )
+
+    movies = (
+        movies_df
+        .select(
+            F.col("id").cast("integer").alias("id"),
+            "title", "vote_average", "release_date"
+        )
+        .withColumn("vote_average", F.round(F.col("vote_average").cast("double"), 2))
+        .filter(
+            F.col("title").isNotNull()
+            & F.col("release_date").rlike(r"^\d{4}-\d{2}-\d{2}$")
+        )
+    )
+
+    result = (
+        movie_ids.join(movies, movie_ids.movieId == movies.id)
+        .select("title", "release_date", "vote_average", "predicted_rating")
+        .collect()
+    )
+
+    return [row.asDict() for row in result]
