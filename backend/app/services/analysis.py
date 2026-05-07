@@ -31,6 +31,7 @@ def get_genre_stats():
 
     return [row.asDict() for row in result]
 
+
 def get_year_trend():
     spark = get_spark()
     df = spark.read.csv(
@@ -60,6 +61,7 @@ def get_year_trend():
     )
 
     return [row.asDict() for row in result]
+
 
 def get_top_directors(limit: int = 10):
     spark = get_spark()
@@ -92,6 +94,50 @@ def get_top_directors(limit: int = 10):
     result = (
         directors.join(movies, on="id")
         .groupBy("director")
+        .agg(
+            F.count("*").alias("movie_count"),
+            F.round(F.avg("vote_average"), 2).alias("avg_rating"),
+        )
+        .filter(F.col("movie_count") >= 5)
+        .orderBy(F.desc("avg_rating"))
+        .limit(limit)
+        .collect()
+    )
+
+    return [row.asDict() for row in result]
+
+
+def get_top_actors(limit: int = 10):
+    spark = get_spark()
+    credits_df = spark.read.csv(
+        f"{settings.data_dir}/credits.csv",
+        header=True,
+        inferSchema=False,
+    )
+    movies_df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    actors = (
+        credits_df
+        .select("id", "cast")
+        .withColumn("member", F.explode(F.from_json(F.col("cast"), "array<struct<name:string,order:int>>")))
+        .filter(F.col("member.order") < 3)
+        .select(F.col("id"), F.col("member.name").alias("actor"))
+    )
+
+    movies = (
+        movies_df
+        .select("id", "vote_average")
+        .withColumn("vote_average", F.col("vote_average").cast("float"))
+        .filter((F.col("vote_average") > 0) & (F.col("vote_average") <= 10))
+    )
+
+    result = (
+        actors.join(movies, on="id")
+        .groupBy("actor")
         .agg(
             F.count("*").alias("movie_count"),
             F.round(F.avg("vote_average"), 2).alias("avg_rating"),
