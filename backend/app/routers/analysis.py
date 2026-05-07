@@ -19,3 +19,7 @@ def top_directors():
 @router.get("/top-actors")
 def top_actors():
     return analysis_service.get_top_actors()
+
+@router.get("/roi")
+def roi_analysis():
+    return analysis_service.get_roi_analysis()

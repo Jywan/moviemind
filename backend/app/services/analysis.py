@@ -149,3 +149,30 @@ def get_top_actors(limit: int = 10):
     )
 
     return [row.asDict() for row in result]
+
+
+def get_roi_analysis(limit: int = 10):
+    spark = get_spark()
+    df = spark.read.csv(
+        f"{settings.data_dir}/movies_metadata.csv",
+        header=True,
+        inferSchema=False,
+    )
+
+    result = (
+        df.select("title", "budget", "revenue", "release_date")
+        .withColumn("budget", F.col("budget").cast("long"))
+        .withColumn("revenue", F.col("revenue").cast("long"))
+        .withColumn("year", F.year(F.to_date(F.col("release_date"), "yyyy-MM-dd")))
+        .filter(
+            (F.col("budget") > 1_000_000)
+            & (F.col("revenue") > 0)
+        )
+        .withColumn("roi", F.round((F.col("revenue") - F.col("budget")) / F.col("budget") * 100, 2))
+        .select("title", "year", "budget", "revenue", "roi")
+        .orderBy(F.desc("roi"))
+        .limit(limit)
+        .collect()
+    )
+
+    return [row.asDict() for row in result]
