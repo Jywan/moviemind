@@ -19,22 +19,37 @@ export default function RecommendPage() {
     const [ recommendations, setRecommendations ] = useState<Movie[]>([]);
     const [ loadingSimilar, setLoadingSimilar ] = useState(false);
     const [ loadingRec, setLoadingRec ] = useState(false);
+    const [similarError, setSimilarError] = useState<string | null>(null);
+    const [recError, setRecError] = useState<string | null>(null);
 
 
     async function handleSimilar() {
         if (!movieId) return;
         setLoadingSimilar(true);
-        const data = await getSimilarMovies(Number(movieId));
-        setSimilarMovies(data);
-        setLoadingSimilar(false);
+        setSimilarError(null);
+        try {
+            const data = await getSimilarMovies(Number(movieId));
+            setSimilarMovies(data);
+        } catch {
+            setSimilarError("유사 영화를 불러오지 못했습니다.");
+        } finally {
+            setLoadingSimilar(false);
+        }
     }
 
+    
     async function handleRecommend() {
         if (!userId) return;
         setLoadingRec(true);
-        const data = await getRecommendations(Number(userId));
-        setRecommendations(data);
-        setLoadingRec(false);
+        setRecError(null);
+        try {
+            const data = await getRecommendations(Number(userId));
+            setRecommendations(data);
+        } catch {
+            setRecError("추천 목록을 불러오지 못했습니다.");
+        } finally {
+            setLoadingRec(false);
+        }
     }
 
 
@@ -42,7 +57,7 @@ export default function RecommendPage() {
         <main className="min-h-screen bg-gray-50 p-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-8">추천</h1>
             
-            <div className="grid gird-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6">
                 {/* 콘텐츠 기반 추천 */}
                 <div className="bg-white rounded-xl shadow p-6">
                     <h2 className="text-lg font-semibold mb-4">유사 영화 추천</h2>
@@ -61,6 +76,7 @@ export default function RecommendPage() {
                             {loadingSimilar ? "검색 중...": "검색"}
                         </button>
                     </div>
+                    {similarError && <p className="text-red-500 text-sm mb-4">{similarError}</p>}
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-left text-gray-500 border-b">
@@ -99,6 +115,7 @@ export default function RecommendPage() {
                             {loadingRec ? "검색 중...": "검색"}
                         </button>
                     </div>
+                    {recError && <p className="text-red-500 text-sm mb-4">{recError}</p>}
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-left text-gray-500 border-b">
