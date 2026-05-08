@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Navbar from "./components/Navbar";
 
 export const metadata: Metadata = {
     title: "MovieMind",
@@ -12,7 +13,10 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ko">
-            <body>{children}</body>
+            <body className="bg-gray-50">
+                <Navbar />
+                {children}
+            </body>
         </html>
     );
 }
